@@ -1,6 +1,6 @@
-# Responsi1
+<img width="2000" height="840" alt="Teks paragraf Anda (1)" src="https://github.com/user-attachments/assets/ea70034b-4c4d-404f-a8f5-55a2680c54c3" />
 
-Responsi1 is a simple terminal-based music catalogue and player application built in Java.
+Castify is a simple terminal-based music catalogue and player application built in Java.
 ---
 
 ## Prerequisites
