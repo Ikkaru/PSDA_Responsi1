@@ -43,12 +43,15 @@ public class MusicCatalogue {
         return musicList.size();
     }
 
-
-    // TODO: Menambahkan Method Untuk Mengambil Musik Beradasarkan Indeks
+    // Method untuk mengambil lagu berdasarkan indeks
     public Music get(int index) {
         return musicList.get(index);
     }
 
+    // Membuat root Tree untuk playlist
+    private Playlist rootPlaylist = new Playlist("My Playlist");
 
-
+    public Playlist getRootPlaylist(){
+        return rootPlaylist;
+    }
 }

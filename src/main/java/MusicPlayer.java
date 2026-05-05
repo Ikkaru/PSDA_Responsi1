@@ -30,6 +30,11 @@ public class MusicPlayer {
         playMusic(musicQueue.poll());
     }
 
+    // Method khusus untuk memutar lagu dari History
+    private void playFromHistory(Music music) {
+        currentMusic = music;
+    }
+
     // Method untuk play previous
     public void playPrevious() {
         // Jika Stack Kosong
@@ -39,7 +44,7 @@ public class MusicPlayer {
         }
 
         // Putar lagu sebelumnya
-        playMusic(history.pop());
+        playFromHistory(history.pop());
     }
 
     // Method untuk mengambil Lagu saat ini

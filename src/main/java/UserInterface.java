@@ -9,12 +9,16 @@ import com.googlecode.lanterna.terminal.DefaultTerminalFactory;
 import com.googlecode.lanterna.terminal.Terminal;
 import com.googlecode.lanterna.SGR;
 import com.googlecode.lanterna.gui2.table.Table;
+import com.googlecode.lanterna.gui2.dialogs.TextInputDialog;
+import com.googlecode.lanterna.gui2.dialogs.MessageDialog;
 
 
 import javax.print.DocFlavor;
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
 
 public class UserInterface {
     // Menghubungkan dengan struktur data
@@ -42,6 +46,34 @@ public class UserInterface {
         this.catalogue = catalogue;
     }
 
+    // Method untuk refresh Tabel
+    private void refreshMusicTable(Table<String> table, List<Music> songs) {
+        table.getTableModel().clear();
+        for (Music music : songs) {
+            int minutes = music.duration / 60;
+            int second = music.duration % 60;
+            String durationText = String.format("%02d:%02d", minutes, second);
+            table.getTableModel().addRow(music.id, music.title, music.artist, music.genre, durationText, String.valueOf(music.listeners_count));
+        }
+    }
+
+    // Method untuk membuat Interface folder hierarki playlist menggunakan traversal preorder
+    private void buildPlaylistTreeUI(ActionListBox menu, Playlist node, int depth, Table<String> table) {
+        // Efek visual indent
+        String indent = "-".repeat(depth);
+        String icon = node.getChildren().isEmpty() ? " ▶ " : ">";
+
+        // Proses node saat ini tampilkan lagu / folder di node ini
+        menu.addItem(indent + icon + node.getName(), () -> {
+            refreshMusicTable(table, node.getSongs());
+        });
+
+        // Proses Childnya
+        for (Playlist child : node.getChildren()) {
+            buildPlaylistTreeUI(menu, child, depth + 1, table);
+        }
+    }
+
     public void run() {
         try {
             // Initialize
@@ -66,14 +98,10 @@ public class UserInterface {
             topPanel.addComponent(
                     new Label("(˶>⩊<˶)  Castify").addStyle(SGR.BOLD),
                     BorderLayout.Location.LEFT);
-            topPanel.addComponent(new Label("[↑/↓] Navigate  [S] Search  [Alt+P] Play/Pause  [Alt+N] Next  [Q] Queue  "), BorderLayout.Location.RIGHT);
+                topPanel.addComponent(new Label("[↑/↓] Navigate  [S] Search Title  [I] Search ID  [G] Genres  [Alt+P] Play/Pause  [F1-F3] Switch Workspace"), BorderLayout.Location.RIGHT);
             topWin.setComponent(topPanel);
 
-            // -----------------Left SideBar----------------
-            BasicWindow leftWin = new BasicWindow("Playlist");
-            leftWin.setHints(Arrays.asList(Window.Hint.FIXED_POSITION));
-            Panel leftPanel = new Panel(new LinearLayout(Direction.VERTICAL));
-            leftWin.setComponent(leftPanel);
+
 
             // ----------------Right SideBar----------------
             BasicWindow rightWin = new BasicWindow("Queue");
@@ -205,8 +233,17 @@ public class UserInterface {
 
                 // Opsi Add to Queue
                 actionOption.addItem("[+] Add to Queue", () -> {
-                    // TODO: NGEBENERIN PLAYERNYA
-                    player.addToQueue(selectedMusic);
+                    // Check apakah sudah ada musik yang diputar
+                    if (player.getCurrentMusic() == null) {
+                        player.playMusic(selectedMusic);
+                        musicStartDuration = System.currentTimeMillis();
+                        isPaused = false;
+                        if (btnPlayPause != null) btnPlayPause.setLabel("⏸");
+                    }
+                    else {
+                        player.addToQueue(selectedMusic);
+                    }
+
                     dialogWindow.close();
                 });
 
@@ -223,6 +260,25 @@ public class UserInterface {
             centerPanel.addComponent(musicTable, LinearLayout.createLayoutData(LinearLayout.Alignment.Fill));
 
             centerWin.setComponent(centerPanel);
+
+
+            // -----------------Left SideBar----------------
+            BasicWindow leftWin = new BasicWindow("Playlist");
+            leftWin.setHints(Arrays.asList(Window.Hint.FIXED_POSITION));
+            Panel leftPanel = new Panel(new LinearLayout(Direction.VERTICAL));
+
+            ActionListBox playlistMenu = new ActionListBox();
+
+            // Tampilkan Playlist untuk semua lagu
+            playlistMenu.addItem("All Songs", () -> {
+                refreshMusicTable(musicTable, catalogue.getAllSongs());
+            });
+
+            // Panggil method untuk print folder menggunakan traversal preorder
+            buildPlaylistTreeUI(playlistMenu, catalogue.getRootPlaylist(), 0, musicTable);
+
+            leftPanel.addComponent(playlistMenu);
+            leftWin.setComponent(leftPanel);
 
             // Position Calculation
             Runnable updateLayout = () -> {
@@ -254,7 +310,7 @@ public class UserInterface {
                 rightWin.setPosition(new TerminalPosition(marginX + leftW + gapX + centerW + gapX, marginY + topH + gapY));
                 botWin.setPosition(new TerminalPosition(marginX, marginY + topH + gapY + midH + gapY));
 
-                // --- APPLY UKURAN (-2 karena border jendela bawaan memakan 2 karakter) ---
+                // --- APPLY UKURAN ---
                 topPanel.setPreferredSize(new TerminalSize(totalW - 2, topH - 2));
                 leftPanel.setPreferredSize(new TerminalSize(leftW - 2, midH - 2));
                 centerPanel.setPreferredSize(new TerminalSize(centerW - 2, midH - 2));
@@ -284,20 +340,100 @@ public class UserInterface {
 
             // Key Listener
             gui.addListener((textGUI, keyStroke) -> {
-                // Kita menggunakan kombinasi ALT + Huruf agar tidak bentrok dengan pencarian tabel
-                if (keyStroke.isAltDown() && keyStroke.getKeyType() == KeyType.Character) {
-                    char c = Character.toLowerCase(keyStroke.getCharacter());
-                    if (c == 'p') {
-                        actionTogglePause.run();
-                        return true; // Berhenti memproses tombol, karena kita sudah menanganinya
-                    } else if (c == 'n') {
-                        actionNext.run();
-                        return true;
-                    } else if (c == 'b') {
-                        actionPrev.run();
-                        return true;
+                Character keyChar = keyStroke.getCharacter();
+
+                if (keyStroke.getKeyType() == KeyType.Character && keyChar != null) {
+                    char c = Character.toLowerCase(keyChar);
+
+                    // ALt Combination
+                    if (keyStroke.isAltDown() && keyStroke.getKeyType() == KeyType.Character) {
+                        if (c == 'p') {
+                            actionTogglePause.run();
+                            return true;
+                        } else if (c == 'n') {
+                            actionNext.run();
+                            return true;
+                        } else if (c == 'b') {
+                            actionPrev.run();
+                            return true;
+                        }
+                    }
+                    // Search bar
+                    else {
+                        if (c == 's') {
+                            String searchTitle = TextInputDialog.showDialog(gui, "Serach Music", "Masukkan Judul Lagu", "");
+
+                            // Jika user mengetikkan sesuatu
+                            if (searchTitle != null && !searchTitle.isEmpty()) {
+                                // Mencari lagu menggunakan method dari Binary Search Tree-mu
+                                Music foundMusic = catalogue.findByTitle(searchTitle);
+
+                                if (foundMusic != null) {
+                                    // Jika ketemu, panggil refreshMusicTable dengan membawa 1 lagu tersebut (dibungkus ke dalam List)
+                                    refreshMusicTable(musicTable, Arrays.asList(foundMusic));
+                                } else {
+                                    // Jika tidak ketemu, munculkan pop-up peringatan
+                                    MessageDialog.showMessageDialog(gui, "Not Found", "Lagu '" + searchTitle + "' tidak ditemukan.");
+                                }
+                            }
+                            return true;
+                        }
+                        else if (c == 'i') {
+                            String searchId = TextInputDialog.showDialog(gui, "Search Music by ID", "Masukkan ID Lagu", "");
+
+                            if (searchId != null && !searchId.isBlank()) {
+                                Music foundMusic = catalogue.findById(searchId.trim().toUpperCase());
+
+                                if (foundMusic != null) {
+                                    refreshMusicTable(musicTable, Arrays.asList(foundMusic));
+                                } else {
+                                    MessageDialog.showMessageDialog(gui, "Not Found", "Lagu dengan ID '" + searchId + "' tidak ditemukan.");
+                                }
+                            }
+                            return true;
+                        }
+                        else if (c == 'g') {
+                            // Ambil data set genre dari MusicCatalogue
+                            Set<String> genres = catalogue.getGenres();
+
+                            if (genres.isEmpty()) {
+                                MessageDialog.showMessageDialog(gui, "Genres", "Belum ada genre yang terdaftar.");
+                            } else {
+                                // Susun teks menggunakan StringBuilder
+                                StringBuilder genreText = new StringBuilder();
+                                for (String genre : genres) {
+                                    genreText.append("- ").append(genre).append("\n");
+                                }
+
+                                // Tampilkan ke dalam Pop-up Dialog
+                                MessageDialog.showMessageDialog(gui, "Available Genres", genreText.toString());
+                            }
+                            return true;
+                        }
                     }
                 }
+
+
+                if (keyStroke.getKeyType() == KeyType.F1) {
+                    // Trik "Wake Up": Cabut dan pasang lagi agar jendela ini diprioritaskan
+                    gui.removeWindow(leftWin);
+                    gui.addWindow(leftWin);
+                    playlistMenu.takeFocus();
+                    return true;
+
+                } else if (keyStroke.getKeyType() == KeyType.F2) {
+                    gui.removeWindow(centerWin);
+                    gui.addWindow(centerWin);
+                    musicTable.takeFocus();
+                    return true;
+
+                } else if (keyStroke.getKeyType() == KeyType.F3) {
+                    gui.removeWindow(botWin);
+                    gui.addWindow(botWin);
+                    btnPlayPause.takeFocus();
+                    return true;
+                }
+
                 return false;
             });
 
