@@ -7,9 +7,10 @@ Responsi1 is a simple terminal-based music catalogue and player application buil
 
 - Java JDK 21 (or newer) installed and available on `PATH`.
 - A terminal that supports ANSI/VT sequences (Linux terminals, Windows Terminal, or PowerShell on modern Windows).
+- `lib/lanterna-3.1.1.jar` must exist in the project folder (already included in this repo).
 
 Notes:
-- Maven is optional thanks to the included Maven Wrapper (`mvnw` / `mvnw.cmd`). If you prefer, you may install Maven globally.
+- Maven is not required for normal execution using `run.bat`.
 
 ---
 
@@ -22,7 +23,8 @@ A `run.bat` script was added to the repository. From a Command Prompt or PowerSh
 run.bat
 ```
 
-`run.bat` will try, in order: `mvnw.cmd`, `mvn` (if installed), and finally a fallback `java` launch using `target/classes` + `target/dependency` if those exist.
+`run.bat` will compile source files with `javac` and run the program directly with local dependency `lib/lanterna-3.1.1.jar`.
+This means the app can run even when Maven Wrapper is broken or Maven is not installed.
 
 ---
 

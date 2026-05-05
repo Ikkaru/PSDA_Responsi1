@@ -1,37 +1,60 @@
 @echo off
-REM Simple runner for Responsi1 on Windows
-REM Tries mvnw.cmd (wrapper), then mvn (system), then fallback to java with existing target/classes and target/dependency
+setlocal
+REM Windows launcher without Maven dependency
+REM Compiles sources with javac and runs Main using local lanterna jar
 
-echo Running Responsi1...
+echo Running Responsi1 (No Maven mode)...
 
-if exist mvnw.cmd (
-  echo Found mvnw.cmd, using Maven Wrapper...
-  mvnw.cmd -q -DskipTests compile exec:java -Dexec.mainClass=Main
-  exit /b %errorlevel%
+where java >nul 2>&1
+if errorlevel 1 (
+  echo Java runtime not found in PATH.
+  echo Please install JDK 21 or newer, then rerun.
+  echo.
+  pause
+  exit /b 1
 )
 
-where mvn >nul 2>&1
-if %ERRORLEVEL%==0 (
-  echo Found mvn, using system Maven...
-  mvn -q -DskipTests compile exec:java -Dexec.mainClass=Main
-  exit /b %errorlevel%
+where javac >nul 2>&1
+if errorlevel 1 (
+  echo Java compiler ^(javac^) not found in PATH.
+  echo Please install full JDK 21 or newer, then rerun.
+  echo.
+  pause
+  exit /b 1
 )
 
-REM Fallback: try to run with already-built classes and dependencies
-if exist target\classes (
-  if exist target\dependency (
-    echo Running with existing classes and dependency jars...
-    java -cp "target/classes;target/dependency/*" Main
-    exit /b %errorlevel%
-  )
+if not exist lib\lanterna-3.1.1.jar (
+  echo Missing dependency: lib\lanterna-3.1.1.jar
+  echo Make sure you submit/extract the full project folder including lib.
+  echo.
+  pause
+  exit /b 1
 )
 
-echo.
-echo Maven not found and built classes/dependencies missing.
-echo Options:
-echo 1) Install Maven or add it to PATH.
-echo 2) Add Maven Wrapper (mvnw.cmd) to the project repository.
-echo 3) Build the project on another machine and copy target/classes and target/dependency here.
-echo.
-pause
-exit /b 1
+if not exist target\classes (
+  mkdir target\classes >nul 2>&1
+)
+
+REM Set initial console size (ignore error if terminal doesn't support this)
+mode con: cols=200 lines=60 >nul 2>&1
+
+echo Compiling Java sources...
+javac -encoding UTF-8 -cp "lib\lanterna-3.1.1.jar" -d target\classes src\main\java\*.java
+if errorlevel 1 (
+  echo Compilation failed.
+  echo.
+  pause
+  exit /b 1
+)
+
+echo Starting application...
+java -cp "target\classes;lib\lanterna-3.1.1.jar" Main
+set EXIT_CODE=%ERRORLEVEL%
+
+if not "%EXIT_CODE%"=="0" (
+  echo.
+  echo Program exited with code %EXIT_CODE%.
+  pause
+)
+
+exit /b %EXIT_CODE%

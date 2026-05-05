@@ -13,14 +13,14 @@ import com.googlecode.lanterna.gui2.dialogs.TextInputDialog;
 import com.googlecode.lanterna.gui2.dialogs.MessageDialog;
 
 
-import javax.print.DocFlavor;
-import java.io.IOException;
-import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
 public class UserInterface {
+    private static final int INITIAL_WIDTH = 191;
+    private static final int INITIAL_HEIGHT = 52;
+
     // Menghubungkan dengan struktur data
     private MusicPlayer player;
     private MusicCatalogue catalogue;
@@ -38,7 +38,6 @@ public class UserInterface {
 
     private boolean isRunning = true;
     private long musicStartDuration = 0;
-    private int musicDuration;
 
     // Contructutor
     public UserInterface(MusicPlayer player, MusicCatalogue catalogue) {
@@ -77,7 +76,13 @@ public class UserInterface {
     public void run() {
         try {
             // Initialize
-            Terminal terminal = new DefaultTerminalFactory().createTerminal();
+            DefaultTerminalFactory terminalFactory = new DefaultTerminalFactory();
+            terminalFactory.setPreferTerminalEmulator(true);
+            terminalFactory.setForceTextTerminal(false);
+            terminalFactory.setTerminalEmulatorTitle("Castify");
+            terminalFactory.setInitialTerminalSize(new TerminalSize(INITIAL_WIDTH, INITIAL_HEIGHT));
+
+            Terminal terminal = terminalFactory.createTerminal();
             Screen screen = new TerminalScreen(terminal);
             screen.startScreen();
 
@@ -98,7 +103,7 @@ public class UserInterface {
             topPanel.addComponent(
                     new Label("(˶>⩊<˶)  Castify").addStyle(SGR.BOLD),
                     BorderLayout.Location.LEFT);
-                topPanel.addComponent(new Label("[↑/↓] Navigate  [S] Search Title  [I] Search ID  [G] Genres  [Alt+P] Play/Pause  [F1-F3] Switch Workspace"), BorderLayout.Location.RIGHT);
+                topPanel.addComponent(new Label("[↑/↓] Navigate  [S] Search Title  [I] Search ID  [G] Genres  [Alt+P] Play/Pause  [F1-F3] Switch Workspace  [Q/Esc] Exit"), BorderLayout.Location.RIGHT);
             topWin.setComponent(topPanel);
 
 
@@ -286,7 +291,6 @@ public class UserInterface {
                 int W = Math.max(40, ts.getColumns());
                 int H = Math.max(20, ts.getRows());
 
-                // Parameter "Gaps" layaknya konfigurasi dotfiles
                 int gapX = 2; // Celah kiri-kanan antar jendela
                 int gapY = 1; // Celah atas-bawah antar jendela
                 int marginX = 2; // Jarak dari pinggir kiri monitor
@@ -321,14 +325,11 @@ public class UserInterface {
             // Jalankan kalkulasi pertama kali
             updateLayout.run();
 
+            final boolean[] layoutDirty = {false};
+
             // Dengarkan perintah resize dari OS untuk mengubah ukuran on-the-fly
             terminal.addResizeListener((t, newSize) -> {
-                updateLayout.run();
-                try {
-                    gui.updateScreen();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+                layoutDirty[0] = true;
             });
 
             // Masukkan ke layar utama
@@ -342,8 +343,18 @@ public class UserInterface {
             gui.addListener((textGUI, keyStroke) -> {
                 Character keyChar = keyStroke.getCharacter();
 
+                if (keyStroke.getKeyType() == KeyType.EOF || keyStroke.getKeyType() == KeyType.Escape) {
+                    isRunning = false;
+                    return true;
+                }
+
                 if (keyStroke.getKeyType() == KeyType.Character && keyChar != null) {
                     char c = Character.toLowerCase(keyChar);
+
+                    if (!keyStroke.isAltDown() && c == 'q') {
+                        isRunning = false;
+                        return true;
+                    }
 
                     // ALt Combination
                     if (keyStroke.isAltDown() && keyStroke.getKeyType() == KeyType.Character) {
@@ -355,6 +366,9 @@ public class UserInterface {
                             return true;
                         } else if (c == 'b') {
                             actionPrev.run();
+                            return true;
+                        } else if (c == 'c') {
+                            isRunning = false;
                             return true;
                         }
                     }
@@ -415,7 +429,6 @@ public class UserInterface {
 
 
                 if (keyStroke.getKeyType() == KeyType.F1) {
-                    // Trik "Wake Up": Cabut dan pasang lagi agar jendela ini diprioritaskan
                     gui.removeWindow(leftWin);
                     gui.addWindow(leftWin);
                     playlistMenu.takeFocus();
@@ -441,6 +454,11 @@ public class UserInterface {
 
             // Player Loop
             while (isRunning) {
+                if (layoutDirty[0]) {
+                    updateLayout.run();
+                    layoutDirty[0] = false;
+                }
+
                 gui.getGUIThread().processEventsAndUpdate();
 
                 // Ambil lagu saat ini
@@ -507,7 +525,7 @@ public class UserInterface {
                     textQueueList.setText(queueText.toString());
                 }
 
-                Thread.sleep(50);
+                Thread.sleep(16);
             }
 
             screen.stopScreen();
