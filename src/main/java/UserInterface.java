@@ -103,7 +103,7 @@ public class UserInterface {
             topPanel.addComponent(
                     new Label("(˶>⩊<˶)  Castify").addStyle(SGR.BOLD),
                     BorderLayout.Location.LEFT);
-                topPanel.addComponent(new Label("[↑/↓] Navigate  [S] Search Title  [I] Search ID  [G] Genres  [Alt+P] Play/Pause  [F1-F3] Switch Workspace  [Q/Esc] Exit"), BorderLayout.Location.RIGHT);
+                topPanel.addComponent(new Label("[↑/↓] Navigate  [S] Search Title  [I] Search ID  [G] Genres  [Alt+P] Play/Pause  [F1-F3] Switch Workspace  [Q/Esc] Exit  "), BorderLayout.Location.RIGHT);
             topWin.setComponent(topPanel);
 
 
